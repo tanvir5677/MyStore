@@ -1,21 +1,23 @@
 {
   "name": "mystore",
-  "license": "0BSD",
   "version": "1.0.0",
-  "main": "index.js",
-  "dependencies": {
-    "expo": "~57.0.20",
-    "expo-status-bar": "~57.0.1",
-    "expo-updates": "~57.0.22",
-    "lucide-react": "^1.42.0",
-    "react": "19.2.3",
-    "react-native": "0.86.3"
-  },
+  "main": "node_modules/expo/AppEntry.js",
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web"
+  },
+  "dependencies": {
+    "@react-native-async-storage/async-storage": "1.23.1",
+    "expo": "~51.0.0",
+    "expo-image-picker": "~15.1.0",
+    "expo-location": "~17.0.1",
+    "expo-status-bar": "~1.12.1",
+    "firebase": "^10.12.0",
+    "react": "18.2.0",
+    "react-native": "0.74.5",
+    "expo-updates": "~0.25.0"
   },
   "private": true
 }

@@ -1,36 +1,62 @@
 {
   "expo": {
-    "name": "MyStore",
+    "name": "My Store",
     "slug": "mystore",
     "version": "1.0.0",
+    "owner": "tanv123s-team",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#121c15"
+    },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "jsEngine": "jsc"
     },
     "android": {
-      "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
-      }
+      "package": "com.tanvir.mystore",
+      "jsEngine": "jsc",
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.RECORD_AUDIO"
+      ]
     },
-    "web": {
-      "favicon": "./assets/favicon.png"
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "আপনার পণ্যের ছবি তোলার জন্য ক্যামেরার পারমিশন প্রয়োজন।"
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationPermission": "আপনার লোকেশন ট্র্যাক করার জন্য পারমিশন প্রয়োজন।"
+        }
+      ]
+    ],
+    "sdkVersion": "51.0.0",
+    "platforms": [
+      "ios",
+      "android"
+    ],
+    "updates": {
+      "url": "https://u.expo.dev/56d34e34-8b7f-41f9-9b08-17b0c338cd53"
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
     },
     "extra": {
       "eas": {
         "projectId": "56d34e34-8b7f-41f9-9b08-17b0c338cd53"
       }
-    },
-    "runtimeVersion": {
-      "policy": "appVersion"
-    },
-    "updates": {
-      "url": "https://u.expo.dev/56d34e34-8b7f-41f9-9b08-17b0c338cd53"
-    },
-    "owner": "tanv123s-team"
+    }
   }
 }
