@@ -2,7 +2,7 @@
   "expo": {
     "name": "My Store",
     "slug": "mystore",
-    "version": "1.0.0",
+    "version": "1.0.5",
     "owner": "tanv123s-team",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
