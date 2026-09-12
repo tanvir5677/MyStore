@@ -14,7 +14,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 20
 
       - name: Install dependencies
         run: npm install
@@ -23,6 +23,8 @@ jobs:
         run: npm install -g eas-cli
 
       - name: Publish EAS Update
-        run: npx eas update --branch production --message "Auto update via GitHub Actions" --non-interactive
+        run: npx eas update --branch production --message "Auto update via GitHub Actions"
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          CI: "1"
+
