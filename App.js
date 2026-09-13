@@ -29,6 +29,7 @@ import {
   signOut, 
   onAuthStateChanged,
   sendEmailVerification,
+  sendPasswordResetEmail,
   initializeAuth,
   getReactNativePersistence
 } from 'firebase/auth';
@@ -95,7 +96,7 @@ const triggerButtonPressAnimation = (scaleRef, pressAnim) => {
 export default function App() {
   /**
    * ============================================================================
-   * STATE MANAGEMENT (SAME AS BEFORE + NEW ANIMATION STATES)
+   * STATE MANAGEMENT (SAME AS BEFORE + NEW ANIMATION & RESET STATES)
    * ============================================================================
    */
   const [initializing, setInitializing] = useState(true);
@@ -104,6 +105,13 @@ export default function App() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [user, setUser] = useState(null);
+
+  // Password Reset / Forgot States
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetCode, setResetCode] = useState(['', '', '', '', '', '']);
+  const [newPassword, setNewPassword] = useState('');
+  const [isCodeVerified, setIsCodeVerified] = useState(false);
 
   const [shopName, setShopName] = useState('My Store');
   const [shopLogo, setShopLogo] = useState('https://images.unsplash.com/photo-1472851294608-062f824d29cc');
@@ -264,12 +272,12 @@ export default function App() {
    * ============================================================================
    */
   useEffect(() => {
-    if (showProfileModal) {
+    if (showProfileModal || showResetModal) {
       Animated.timing(modalSlideAnim, { toValue: 0, duration: 400, useNativeDriver: true }).start();
     } else {
       Animated.timing(modalSlideAnim, { toValue: Dimensions.get('window').height, duration: 300, useNativeDriver: true }).start();
     }
-  }, [showProfileModal]);
+  }, [showProfileModal, showResetModal]);
 
   /**
    * ============================================================================
@@ -315,6 +323,23 @@ export default function App() {
       } else {
         await signInWithEmailAndPassword(auth, email.trim(), password);
       }
+    } catch (error) {
+      Alert.alert('ত্রুটি', error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePasswordResetRequest = async () => {
+    if (!resetEmail) {
+      Alert.alert('ত্রুটি', 'দয়া করে আপনার রেজিস্টার্ড ইমেইলটি দিন');
+      return;
+    }
+    setLoading(true);
+    try {
+      await sendPasswordResetEmail(auth, resetEmail.trim());
+      Alert.alert('সফল হয়েছে', 'পাসওয়ার্ড রিসেট করার লিঙ্ক আপনার ইমেইলে পাঠানো হয়েছে।');
+      setShowResetModal(false);
     } catch (error) {
       Alert.alert('ত্রুটি', error.message);
     } finally {
@@ -405,7 +430,7 @@ export default function App() {
                 try {
                   setLoading(true);
                   await Updates.fetchUpdateAsync();
-                  Alert.alert("সফল হয়েছে", "আপডেট ডাউনলোড হয়েছে! পরিবর্তন দেখতে অ্যাপটি রিস্টার্ট করুন।",
+                  Alert.alert("সফল হয়েছে", "আপডেট ডাউনলোড হয়েছে! পরিবর্তন দেখতে অ্যাপটি রিস্টার্ট করুন.",
                     [{ text: "রিস্টার্ট করুন", onPress: () => Updates.reloadAsync() }]
                   );
                 } catch (error) {
@@ -598,7 +623,7 @@ export default function App() {
 
   /**
    * ============================================================================
-   * RENDER UI (SPLASH, LOGIN & DASHBOARD SCREENS)
+   * RENDER UI (SPLASH, LOGIN, RESET PASSWORD & DASHBOARD SCREENS)
    * ============================================================================
    */
 
@@ -668,6 +693,10 @@ export default function App() {
             />
           </View>
 
+          <TouchableOpacity onPress={() => setShowResetModal(true)} style={{alignItems: 'flex-end', marginBottom: 12}}>
+            <Text style={{color: '#818cf8', fontSize: 13, fontWeight: 'bold'}}>পাসওয়ার্ড ভুলে গেছেন?</Text>
+          </TouchableOpacity>
+
           <Pressable
             onPress={() => handleAuthAction(false)}
             onPressIn={() => {
@@ -698,6 +727,92 @@ export default function App() {
             </Animated.View>
           </Pressable>
         </Animated.View>
+
+        {/* PASSWORD RESET MODAL DESIGN */}
+        {showResetModal && (
+          <Animated.View style={[styles.profileModalOverlay, { transform: [{ translateY: modalSlideAnim }] }]}>
+            <View style={styles.profileModalCard}>
+              <View style={styles.modalHeaderRow}>
+                <Text style={styles.modalTitle}>Reset Password</Text>
+                <TouchableOpacity style={styles.crossIconButton} onPress={() => setShowResetModal(false)}>
+                  <Text style={styles.crossIconText}>✕</Text>
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView contentContainerStyle={{paddingBottom: 10}} showsVerticalScrollIndicator={false}>
+                <Text style={{color: '#94a3b8', fontSize: 13, marginBottom: 16}}>
+                  Enter the code sent to your email to reset your password.
+                </Text>
+
+                <TextInput
+                  style={[styles.input, {marginBottom: 15}]}
+                  placeholder="আপনার রেজিস্টার্ড ইমেইল দিন"
+                  placeholderTextColor="#94a3b8"
+                  value={resetEmail}
+                  onChangeText={setResetEmail}
+                  autoCapitalize="none"
+                />
+
+                {/* 6 Digit Code Input Representation */}
+                <View style={{flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15}}>
+                  {[4, 5, 6, 7, 8, 9].map((digit, idx) => (
+                    <View key={idx} style={styles.codeBox}>
+                      <Text style={{color: '#f8fafc', fontWeight: 'bold'}}>{digit}</Text>
+                    </View>
+                  ))}
+                </View>
+
+                <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 20}}>
+                  <Text style={{color: '#34d399', fontSize: 14, fontWeight: 'bold', marginRight: 6}}>✓</Text>
+                  <Text style={{color: '#34d399', fontSize: 13, fontWeight: 'bold'}}>Code verified</Text>
+                </View>
+
+                <Text style={[styles.modalEmailLabel, {marginBottom: 6}]}>New password</Text>
+                <View style={[styles.inputWrapper, {marginBottom: 15}]}>
+                  <Text style={styles.inputIcon}>🔒</Text>
+                  <TextInput
+                    placeholder="••••••••"
+                    style={styles.inputWithIcon}
+                    secureTextEntry
+                    value={newPassword}
+                    onChangeText={setNewPassword}
+                    placeholderTextColor="#94a3b8"
+                  />
+                  <Text style={{color: '#94a3b8', fontSize: 14}}>👁️</Text>
+                </View>
+
+                {/* Password strength criteria checklist */}
+                <View style={{gap: 8, marginBottom: 25}}>
+                  <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                    <Text style={{color: '#34d399', fontWeight: 'bold', marginRight: 8}}>✓</Text>
+                    <Text style={{color: '#34d399', fontSize: 12}}>At least one lowercase letter</Text>
+                  </View>
+                  <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                    <Text style={{color: '#34d399', fontWeight: 'bold', marginRight: 8}}>✓</Text>
+                    <Text style={{color: '#34d399', fontSize: 12}}>Minimum 8 characters</Text>
+                  </View>
+                  <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                    <Text style={{color: '#ef4444', fontWeight: 'bold', marginRight: 8}}>✕</Text>
+                    <Text style={{color: '#94a3b8', fontSize: 12}}>At least one uppercase letter</Text>
+                  </View>
+                  <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                    <Text style={{color: '#ef4444', fontWeight: 'bold', marginRight: 8}}>✕</Text>
+                    <Text style={{color: '#94a3b8', fontSize: 12}}>At least one number</Text>
+                  </View>
+                </View>
+
+                <View style={{flexDirection: 'row', gap: 12}}>
+                  <TouchableOpacity style={styles.cancelButton} onPress={() => setShowResetModal(false)}>
+                    <Text style={styles.cancelButtonText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.submitButton} onPress={handlePasswordResetRequest}>
+                    {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Reset password</Text>}
+                  </TouchableOpacity>
+                </View>
+              </ScrollView>
+            </View>
+          </Animated.View>
+        )}
       </SafeAreaView>
     );
   }
@@ -990,7 +1105,7 @@ export default function App() {
 
 /**
  * ============================================================================
- * STYLESHEET (SAME AS ORIGINAL)
+ * STYLESHEET
  * ============================================================================
  */
 const styles = StyleSheet.create({
@@ -1017,6 +1132,8 @@ const styles = StyleSheet.create({
   inputWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#0f172a', borderRadius: 16, marginBottom: 14, borderWidth: 1, borderColor: '#334155', paddingHorizontal: 14 },
   inputIcon: { fontSize: 16, marginRight: 10 },
   inputWithIcon: { flex: 1, paddingVertical: 15, fontSize: 14, color: '#f8fafc' },
+
+  codeBox: { width: 38, height: 42, backgroundColor: '#0f172a', justifyContent: 'center', alignItems: 'center', borderRadius: 10, borderWidth: 1, borderColor: '#334155' },
 
   primaryButtonGradient: { backgroundColor: '#6366f1', padding: 16, borderRadius: 16, alignItems: 'center', marginTop: 8 },
   buttonText: { color: '#ffffff', fontWeight: 'bold', fontSize: 15 },
@@ -1097,7 +1214,7 @@ const styles = StyleSheet.create({
   imagePickerRow: { flexDirection: 'row', marginBottom: 14 },
   pickerBtn: { flex: 1, backgroundColor: '#0f172a', padding: 12, borderRadius: 14, alignItems: 'center', borderWidth: 1, borderColor: '#334155' },
   pickerBtnText: { color: '#cbd5e1', fontSize: 13, fontWeight: 'bold' },
-  previewImage: { width: '100%', height: 150, borderRadius: 14, marginBottom: 14, resizeMode: 'cover', borderWidth: 1, borderColor: '#334155' },
+  previewImage: { width: '100%', height: 150, borderRadius: 14, marginBottom: 14, resizeMode: 'cover', borderWidth: '1', borderColor: '#334155' },
 
   formActionButtons: { flexDirection: 'row', gap: 12, marginTop: 6 },
   submitButton: { flex: 1, backgroundColor: '#6366f1', padding: 14, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
