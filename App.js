@@ -18,7 +18,6 @@ import {
   Image,
   Linking,
   Dimensions,
-  PanResponder,
   Pressable
 } from 'react-native';
 
@@ -54,7 +53,7 @@ import * as Updates from 'expo-updates';
 const { width } = Dimensions.get('window');
 
 // ============================================================================
-// FIREBASE CONFIG (UNCHANGED)
+// FIREBASE CONFIG
 // ============================================================================
 const firebaseConfig = {
   apiKey: "AIzaSyC45jCX-bDfjNjlHhbfsdQ9Zomx951Q70o",
@@ -73,10 +72,10 @@ const auth = initializeAuth(app, {
 const db = getFirestore(app);
 
 // ============================================================================
-// ANIMATION HELPERS (NEW SECTION - REUSABLE ANIMATION FUNCTIONS)
+// ANIMATION HELPERS
 // ============================================================================
 const createStaggerAnimation = (index, totalCount) => {
-  const staggerDelay = 30; // ms per item
+  const staggerDelay = 30;
   return index * staggerDelay;
 };
 
@@ -94,11 +93,6 @@ const triggerButtonPressAnimation = (scaleRef, pressAnim) => {
 };
 
 export default function App() {
-  /**
-   * ============================================================================
-   * STATE MANAGEMENT (SAME AS BEFORE + NEW ANIMATION & RESET STATES)
-   * ============================================================================
-   */
   const [initializing, setInitializing] = useState(true);
   const [showSplash, setShowSplash] = useState(true);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -109,9 +103,7 @@ export default function App() {
   // Password Reset / Forgot States
   const [showResetModal, setShowResetModal] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
-  const [resetCode, setResetCode] = useState(['', '', '', '', '', '']);
   const [newPassword, setNewPassword] = useState('');
-  const [isCodeVerified, setIsCodeVerified] = useState(false);
 
   const [shopName, setShopName] = useState('My Store');
   const [shopLogo, setShopLogo] = useState('https://images.unsplash.com/photo-1472851294608-062f824d29cc');
@@ -124,6 +116,10 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [currentLocation, setCurrentLocation] = useState(null);
 
+  // Status Animation Popup State (Success Tick / Error Cross)
+  const [statusPopup, setStatusPopup] = useState({ visible: false, type: 'success', text: '' });
+  const statusAnim = useRef(new Animated.Value(0)).current;
+
   const centerPopupAnim = useRef(new Animated.Value(0)).current;
   const [centerPopupData, setCenterPopupData] = useState({ visible: false, type: 'success', text: '' });
 
@@ -133,28 +129,20 @@ export default function App() {
   const splashRotate = useRef(new Animated.Value(0)).current;
   const logoPulse = useRef(new Animated.Value(1)).current;
 
-  // FORM ANIMATIONS (NEW)
+  // FORM ANIMATIONS
   const formHeightAnim = useRef(new Animated.Value(0)).current;
   const formOpacityAnim = useRef(new Animated.Value(0)).current;
 
-  // PRODUCT CARDS ANIMATIONS (NEW)
+  // PRODUCT CARDS ANIMATIONS
   const productCardAnims = useRef({}).current;
-
-  // BUTTON PRESS ANIMATIONS (NEW)
   const buttonPressAnims = useRef({}).current;
   const buttonScaleAnims = useRef({}).current;
-
-  // SEARCH BAR FOCUS ANIMATION (NEW)
   const searchFocusAnim = useRef(new Animated.Value(0)).current;
-
-  // MODAL ENTRANCE ANIMATION (NEW)
   const modalSlideAnim = useRef(new Animated.Value(Dimensions.get('window').height)).current;
 
-  // LOGIN SCREEN ANIMATIONS (EXISTING)
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
 
-  // PRODUCT FORM STATES
   const [formData, setFormData] = useState({
     name: '',
     price: '',
@@ -163,11 +151,18 @@ export default function App() {
     description: ''
   });
 
-  /**
-   * ============================================================================
-   * ANIMATION HELPERS - INITIALIZE ANIMATIONS FOR EACH PRODUCT
-   * ============================================================================
-   */
+  const showStatusPopupMessage = (type, text) => {
+    setStatusPopup({ visible: true, type, text });
+    statusAnim.setValue(0);
+    Animated.spring(statusAnim, { toValue: 1, friction: 5, useNativeDriver: true }).start();
+
+    setTimeout(() => {
+      Animated.timing(statusAnim, { toValue: 0, duration: 250, useNativeDriver: true }).start(() => {
+        setStatusPopup({ visible: false, type: 'success', text: '' });
+      });
+    }, 2200);
+  };
+
   const initializeProductAnimation = (productId) => {
     if (!productCardAnims[productId]) {
       productCardAnims[productId] = {
@@ -187,11 +182,6 @@ export default function App() {
     return { press: buttonPressAnims[buttonId], scale: buttonScaleAnims[buttonId] };
   };
 
-  /**
-   * ============================================================================
-   * SPLASH SCREEN ANIMATION (EXISTING - ENHANCED)
-   * ============================================================================
-   */
   useEffect(() => {
     Animated.parallel([
       Animated.spring(splashScale, { toValue: 1, friction: 4, tension: 50, useNativeDriver: true }),
@@ -215,11 +205,6 @@ export default function App() {
     return () => clearTimeout(timer);
   }, []);
 
-  /**
-   * ============================================================================
-   * LOGIN SCREEN ANIMATION (EXISTING)
-   * ============================================================================
-   */
   useEffect(() => {
     Animated.parallel([
       Animated.timing(fadeAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
@@ -227,11 +212,6 @@ export default function App() {
     ]).start();
   }, [isLoggedIn]);
 
-  /**
-   * ============================================================================
-   * FORM EXPAND/COLLAPSE ANIMATION (NEW)
-   * ============================================================================
-   */
   useEffect(() => {
     if (showForm) {
       Animated.parallel([
@@ -246,11 +226,6 @@ export default function App() {
     }
   }, [showForm]);
 
-  /**
-   * ============================================================================
-  * PRODUCT CARDS STAGGER ANIMATION (NEW)
-  * ============================================================================
-  */
   useEffect(() => {
     products.forEach((product, index) => {
       const anim = initializeProductAnimation(product.id);
@@ -266,11 +241,6 @@ export default function App() {
     });
   }, [products]);
 
-  /**
-   * ============================================================================
-   * MODAL ENTRANCE ANIMATION (NEW)
-   * ============================================================================
-   */
   useEffect(() => {
     if (showProfileModal || showResetModal) {
       Animated.timing(modalSlideAnim, { toValue: 0, duration: 400, useNativeDriver: true }).start();
@@ -279,11 +249,6 @@ export default function App() {
     }
   }, [showProfileModal, showResetModal]);
 
-  /**
-   * ============================================================================
-   * AUTHENTICATION & USER SESSION LOGIC (UNCHANGED)
-   * ============================================================================
-   */
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       try {
@@ -310,7 +275,7 @@ export default function App() {
 
   const handleAuthAction = async (isSignup = false) => {
     if (!email || !password) {
-      Alert.alert('ত্রুটি', 'দয়া করে ইমেইল এবং পাসওয়ার্ড দিন');
+      showStatusPopupMessage('error', 'দয়া করে ইমেইল এবং পাসওয়ার্ড দিন!');
       return;
     }
 
@@ -319,12 +284,19 @@ export default function App() {
       if (isSignup) {
         const userCredential = await createUserWithEmailAndPassword(auth, email.trim(), password);
         await sendEmailVerification(userCredential.user);
-        Alert.alert('ভেরিফিকেশন প্রয়োজন', 'আপনার জিমেইলে একটি ভেরিফিকেশন লিঙ্ক পাঠানো হয়েছে।');
+        showStatusPopupMessage('success', 'Account Created Successfully! ✔️');
       } else {
         await signInWithEmailAndPassword(auth, email.trim(), password);
+        showStatusPopupMessage('success', 'Login Successful! ✔️');
       }
     } catch (error) {
-      Alert.alert('ত্রুটি', error.message);
+      if (error.code === 'auth/email-already-in-use') {
+        showStatusPopupMessage('error', 'Already Account Created! এই জিমেইল দিয়ে ইতিপূর্বে অ্যাকাউন্ট খোলা হয়েছে। ❌');
+      } else if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found') {
+        showStatusPopupMessage('error', 'পাসওয়ার্ড বা ইমেইল ভুল রয়েছে! ❌');
+      } else {
+        showStatusPopupMessage('error', error.message);
+      }
     } finally {
       setLoading(false);
     }
@@ -332,16 +304,16 @@ export default function App() {
 
   const handlePasswordResetRequest = async () => {
     if (!resetEmail) {
-      Alert.alert('ত্রুটি', 'দয়া করে আপনার রেজিস্টার্ড ইমেইলটি দিন');
+      showStatusPopupMessage('error', 'দয়া করে আপনার রেজিস্টার্ড ইমেইলটি দিন');
       return;
     }
     setLoading(true);
     try {
       await sendPasswordResetEmail(auth, resetEmail.trim());
-      Alert.alert('সফল হয়েছে', 'পাসওয়ার্ড রিসেট করার লিঙ্ক আপনার ইমেইলে পাঠানো হয়েছে।');
+      showStatusPopupMessage('success', 'পাসওয়ার্ড রিসেট লিঙ্ক পাঠানো হয়েছে! ✔️');
       setShowResetModal(false);
     } catch (error) {
-      Alert.alert('ত্রুটি', error.message);
+      showStatusPopupMessage('error', 'ইমেইলটি সঠিক নয় বা রেজিস্টার্ড নয়! ❌');
     } finally {
       setLoading(false);
     }
@@ -356,11 +328,6 @@ export default function App() {
     }
   };
 
-  /**
-   * ============================================================================
-   * SHOP SETTINGS & PROFILE LOGIC (UNCHANGED)
-   * ============================================================================
-   */
   const fetchShopData = async (uid) => {
     try {
       const docRef = doc(db, "shopSettings", uid);
@@ -411,17 +378,12 @@ export default function App() {
 
   const checkForAppUpdate = async () => {
     try {
-      if (__DEV__) {
-        console.log("Running in development mode. Update check skipped.");
-        return;
-      }
-
+      if (__DEV__) return;
       const update = await Updates.checkForUpdateAsync();
-      
       if (update.isAvailable) {
         Alert.alert(
           "🚀 নতুন আপডেট উপলব্ধ!",
-          "আমাদের নতুন সংস্করণ এসেছে। আপনি কি এখনই আপডেট করতে চান?",
+          "আপনি কি এখনই আপডেট করতে চান?",
           [
             { text: "পরে করব", style: "cancel" },
             {
@@ -430,11 +392,9 @@ export default function App() {
                 try {
                   setLoading(true);
                   await Updates.fetchUpdateAsync();
-                  Alert.alert("সফল হয়েছে", "আপডেট ডাউনলোড হয়েছে! পরিবর্তন দেখতে অ্যাপটি রিস্টার্ট করুন.",
-                    [{ text: "রিস্টার্ট করুন", onPress: () => Updates.reloadAsync() }]
-                  );
-                } catch (error) {
-                  Alert.alert("ত্রুটি", "আপডেট ডাউনলোড করতে সমস্যা হয়েছে।");
+                  Alert.alert("সফল", "আপডেট সম্পন্ন হয়েছে!", [{ text: "রিস্টার্ট", onPress: () => Updates.reloadAsync() }]);
+                } catch (e) {
+                  Alert.alert("ত্রুটি", "আপডেট করা যায়নি।");
                 } finally {
                   setLoading(false);
                 }
@@ -443,73 +403,35 @@ export default function App() {
           ]
         );
       }
-    } catch (error) {
-      console.log("Error checking for updates: ", error);
-    }
+    } catch (e) {}
   };
 
   const pickImage = async (type = 'product') => {
-    Alert.alert(
-      "ছবি যুক্ত করুন",
-      "আপনি কোথা থেকে ছবি নিতে চান?",
-      [
-        {
-          text: "ক্যামেরা (সরাসরি তুলুন)",
-          onPress: async () => {
-            const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
-            if (!permissionResult.granted) {
-              Alert.alert("অনুমতি প্রয়োজন", "ক্যামেরা ব্যবহারের অনুমতি দেওয়া হয়নি!");
-              return;
-            }
-            let result = await ImagePicker.launchCameraAsync({
-              allowsEditing: true,
-              aspect: [4, 3],
-              quality: 0.8,
-            });
-
-            if (!result.canceled && result.assets && result.assets.length > 0) {
-              if (type === 'shop') {
-                handleShopLogoChange(result.assets[0].uri);
-              } else {
-                setFormData(prev => ({ ...prev, imageUrl: result.assets[0].uri }));
-              }
-            }
+    Alert.alert("ছবি যুক্ত করুন", "কোথা থেকে ছবি নিতে চান?", [
+      {
+        text: "ক্যামেরা",
+        onPress: async () => {
+          let result = await ImagePicker.launchCameraAsync({ allowsEditing: true, aspect: [4, 3], quality: 0.8 });
+          if (!result.canceled && result.assets?.[0]) {
+            if (type === 'shop') handleShopLogoChange(result.assets[0].uri);
+            else setFormData(prev => ({ ...prev, imageUrl: result.assets[0].uri }));
           }
-        },
-        {
-          text: "গ্যালারি",
-          onPress: async () => {
-            const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-            if (!permissionResult.granted) {
-              Alert.alert("অনুমতি প্রয়োজন", "গ্যালারি ব্যবহারের অনুমতি দেওয়া হয়নি!");
-              return;
-            }
-            let result = await ImagePicker.launchImageLibraryAsync({
-              mediaTypes: ImagePicker.MediaTypeOptions.Images,
-              allowsEditing: true,
-              aspect: [4, 3],
-              quality: 0.8,
-            });
-
-            if (!result.canceled && result.assets && result.assets.length > 0) {
-              if (type === 'shop') {
-                handleShopLogoChange(result.assets[0].uri);
-              } else {
-                setFormData(prev => ({ ...prev, imageUrl: result.assets[0].uri }));
-              }
-            }
+        }
+      },
+      {
+        text: "গ্যালারি",
+        onPress: async () => {
+          let result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, aspect: [4, 3], quality: 0.8 });
+          if (!result.canceled && result.assets?.[0]) {
+            if (type === 'shop') handleShopLogoChange(result.assets[0].uri);
+            else setFormData(prev => ({ ...prev, imageUrl: result.assets[0].uri }));
           }
-        },
-        { text: "বাতিল", style: "cancel" }
-      ]
-    );
+        }
+      },
+      { text: "বাতিল", style: "cancel" }
+    ]);
   };
 
-  /**
-   * ============================================================================
-   * PRODUCT MANAGEMENT (CRUD) - UNCHANGED
-   * ============================================================================
-   */
   const fetchProducts = async (uid) => {
     try {
       const q = query(collection(db, "products"), where("userId", "==", uid));
@@ -526,7 +448,7 @@ export default function App() {
 
   const handleAddProduct = async () => {
     if (!formData.name || !formData.price) {
-      Alert.alert('ভুল', 'দয়া করে পণ্যের নাম এবং দাম লিখুন।');
+      showStatusPopupMessage('error', 'পণ্যের নাম ও দাম দিন!');
       return;
     }
 
@@ -543,20 +465,19 @@ export default function App() {
       };
 
       if (editingId) {
-        const productRef = doc(db, "products", editingId);
-        await updateDoc(productRef, productData);
+        await updateDoc(doc(db, "products", editingId), productData);
         setEditingId(null);
-        showCenterPopup('success', 'পণ্য সফলভাবে আপডেট হয়েছে!');
+        showCenterPopup('success', 'পণ্য সফলভাবে আপডেট হয়েছে!');
       } else {
         await addDoc(collection(db, "products"), productData);
-        showCenterPopup('success', 'নতুন পণ্য যোগ করা হয়েছে!');
+        showCenterPopup('success', 'নতুন পণ্য যোগ হয়েছে!');
       }
 
       setFormData({ name: '', price: '', category: '', imageUrl: '', description: '' });
       setShowForm(false);
       await fetchProducts(user.uid);
     } catch (error) {
-      Alert.alert('ত্রুটি', error.message);
+      showStatusPopupMessage('error', error.message);
     } finally {
       setLoading(false);
     }
@@ -575,28 +496,16 @@ export default function App() {
   };
 
   const handleDelete = async (id) => {
-    Alert.alert('নিশ্চিত করুন', 'আপনি কি এই পণ্যটি ডিলিট করতে চান?', [
+    Alert.alert('নিশ্চিত করুন', 'আপনি কি ডিলিট করতে চান?', [
       { text: 'বাতিল', style: 'cancel' },
       {
         text: 'ডিলিট',
         style: 'destructive',
         onPress: async () => {
           try {
-            const anim = productCardAnims[id];
-            if (anim) {
-              Animated.parallel([
-                Animated.timing(anim.scale, { toValue: 0.5, duration: 300, useNativeDriver: true }),
-                Animated.timing(anim.opacity, { toValue: 0, duration: 300, useNativeDriver: true }),
-                Animated.timing(anim.translateY, { toValue: -50, duration: 300, useNativeDriver: true })
-              ]).start();
-            }
-
-            setTimeout(async () => {
-              await deleteDoc(doc(db, "products", id));
-              await fetchProducts(user.uid);
-              showCenterPopup('error', 'পণ্য ডিলিট করা হয়েছে!');
-              delete productCardAnims[id];
-            }, 300);
+            await deleteDoc(doc(db, "products", id));
+            await fetchProducts(user.uid);
+            showCenterPopup('error', 'পণ্য ডিলিট করা হয়েছে!');
           } catch (error) {
             Alert.alert('ত্রুটি', error.message);
           }
@@ -621,12 +530,6 @@ export default function App() {
     }, 1500);
   };
 
-  /**
-   * ============================================================================
-   * RENDER UI (SPLASH, LOGIN, RESET PASSWORD & DASHBOARD SCREENS)
-   * ============================================================================
-   */
-
   if (showSplash) {
     const spin = splashRotate.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
     return (
@@ -640,10 +543,6 @@ export default function App() {
           </Animated.View>
           <Text style={styles.splashTitle}>{shopName}</Text>
           <Text style={styles.splashSubtitle}>ULTIMATE E-COMMERCE SUITE</Text>
-          <View style={styles.splashLoaderBadge}>
-            <ActivityIndicator size="small" color="#6366f1" />
-            <Text style={styles.splashLoadingText}>Loading System...</Text>
-          </View>
         </Animated.View>
       </View>
     );
@@ -660,6 +559,18 @@ export default function App() {
   if (!isLoggedIn) {
     return (
       <SafeAreaView style={styles.loginMainContainer}>
+        {/* Status Animation Popup Overlay for Signup/Login Success or Errors */}
+        {statusPopup.visible && (
+          <View style={styles.centerPopupOverlay}>
+            <Animated.View style={[styles.centerPopupBox, { transform: [{ scale: statusAnim }] }]}>
+              <Text style={styles.centerPopupIcon}>{statusPopup.type === 'success' ? '✅' : '❌'}</Text>
+              <Text style={[styles.centerPopupText, { color: statusPopup.type === 'success' ? '#34d399' : '#ef4444' }]}>
+                {statusPopup.text}
+              </Text>
+            </Animated.View>
+          </View>
+        )}
+
         <Animated.View style={[styles.loginCardPremium, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
           <View style={styles.loginHeaderGlow}>
             <View style={styles.logoCircleContainer}>
@@ -728,12 +639,11 @@ export default function App() {
           </Pressable>
         </Animated.View>
 
-        {/* PASSWORD RESET MODAL DESIGN */}
         {showResetModal && (
           <Animated.View style={[styles.profileModalOverlay, { transform: [{ translateY: modalSlideAnim }] }]}>
             <View style={styles.profileModalCard}>
               <View style={styles.modalHeaderRow}>
-                <Text style={styles.modalTitle}>Reset Password</Text>
+                <Text style={styles.modalTitle}>পাসওয়ার্ড রিসেট</Text>
                 <TouchableOpacity style={styles.crossIconButton} onPress={() => setShowResetModal(false)}>
                   <Text style={styles.crossIconText}>✕</Text>
                 </TouchableOpacity>
@@ -741,72 +651,24 @@ export default function App() {
 
               <ScrollView contentContainerStyle={{paddingBottom: 10}} showsVerticalScrollIndicator={false}>
                 <Text style={{color: '#94a3b8', fontSize: 13, marginBottom: 16}}>
-                  Enter the code sent to your email to reset your password.
+                  আপনার রেজিস্টার্ড ইমেইল দিন। আমরা পাসওয়ার্ড রিসেট লিঙ্ক পাঠিয়ে দেব।
                 </Text>
 
                 <TextInput
                   style={[styles.input, {marginBottom: 15}]}
-                  placeholder="আপনার রেজিস্টার্ড ইমেইল দিন"
+                  placeholder="আপনার ইমেইল দিন"
                   placeholderTextColor="#94a3b8"
                   value={resetEmail}
                   onChangeText={setResetEmail}
                   autoCapitalize="none"
                 />
 
-                {/* 6 Digit Code Input Representation */}
-                <View style={{flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15}}>
-                  {[4, 5, 6, 7, 8, 9].map((digit, idx) => (
-                    <View key={idx} style={styles.codeBox}>
-                      <Text style={{color: '#f8fafc', fontWeight: 'bold'}}>{digit}</Text>
-                    </View>
-                  ))}
-                </View>
-
-                <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 20}}>
-                  <Text style={{color: '#34d399', fontSize: 14, fontWeight: 'bold', marginRight: 6}}>✓</Text>
-                  <Text style={{color: '#34d399', fontSize: 13, fontWeight: 'bold'}}>Code verified</Text>
-                </View>
-
-                <Text style={[styles.modalEmailLabel, {marginBottom: 6}]}>New password</Text>
-                <View style={[styles.inputWrapper, {marginBottom: 15}]}>
-                  <Text style={styles.inputIcon}>🔒</Text>
-                  <TextInput
-                    placeholder="••••••••"
-                    style={styles.inputWithIcon}
-                    secureTextEntry
-                    value={newPassword}
-                    onChangeText={setNewPassword}
-                    placeholderTextColor="#94a3b8"
-                  />
-                  <Text style={{color: '#94a3b8', fontSize: 14}}>👁️</Text>
-                </View>
-
-                {/* Password strength criteria checklist */}
-                <View style={{gap: 8, marginBottom: 25}}>
-                  <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                    <Text style={{color: '#34d399', fontWeight: 'bold', marginRight: 8}}>✓</Text>
-                    <Text style={{color: '#34d399', fontSize: 12}}>At least one lowercase letter</Text>
-                  </View>
-                  <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                    <Text style={{color: '#34d399', fontWeight: 'bold', marginRight: 8}}>✓</Text>
-                    <Text style={{color: '#34d399', fontSize: 12}}>Minimum 8 characters</Text>
-                  </View>
-                  <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                    <Text style={{color: '#ef4444', fontWeight: 'bold', marginRight: 8}}>✕</Text>
-                    <Text style={{color: '#94a3b8', fontSize: 12}}>At least one uppercase letter</Text>
-                  </View>
-                  <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                    <Text style={{color: '#ef4444', fontWeight: 'bold', marginRight: 8}}>✕</Text>
-                    <Text style={{color: '#94a3b8', fontSize: 12}}>At least one number</Text>
-                  </View>
-                </View>
-
                 <View style={{flexDirection: 'row', gap: 12}}>
                   <TouchableOpacity style={styles.cancelButton} onPress={() => setShowResetModal(false)}>
-                    <Text style={styles.cancelButtonText}>Cancel</Text>
+                    <Text style={styles.cancelButtonText}>বাতিল</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.submitButton} onPress={handlePasswordResetRequest}>
-                    {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Reset password</Text>}
+                    {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>লিঙ্ক পাঠান</Text>}
                   </TouchableOpacity>
                 </View>
               </ScrollView>
@@ -894,14 +756,14 @@ export default function App() {
               
               <TouchableOpacity 
                 style={styles.telegramButton} 
-                onPress={() => Linking.openURL('https://t.me/+6qK8oSH0yvc4M2Vl').catch(() => Alert.alert('ত্রুটি', 'লিঙ্কটি ওপেন করা যাচ্ছে না'))}
+                onPress={() => Linking.openURL('https://t.me/+6qK8oSH0yvc4M2Vl').catch(() => {})}
               >
                 <Text style={styles.telegramButtonText}>📢 Join Telegram Group</Text>
               </TouchableOpacity>
 
               <TouchableOpacity 
                 style={styles.creditButton} 
-                onPress={() => Linking.openURL('https://www.facebook.com/share/1DtQhuxpcT/').catch(() => Alert.alert('ত্রুটি', 'লিঙ্কটি ওপেন করা যাচ্ছে না'))}
+                onPress={() => Linking.openURL('https://www.facebook.com/share/1DtQhuxpcT/').catch(() => {})}
               >
                 <Text style={styles.creditButtonText}>👨‍💻 Developed by Tanvir (Facebook)</Text>
               </TouchableOpacity>
@@ -1103,11 +965,6 @@ export default function App() {
   );
 }
 
-/**
- * ============================================================================
- * STYLESHEET
- * ============================================================================
- */
 const styles = StyleSheet.create({
   splashContainer: { flex: 1, backgroundColor: '#0b0f19', justifyContent: 'center', alignItems: 'center' },
   splashCard: { alignItems: 'center', padding: 30 },
@@ -1117,8 +974,6 @@ const styles = StyleSheet.create({
   splashLogoImage: { width: '100%', height: '100%', resizeMode: 'cover' },
   splashTitle: { fontSize: 30, fontWeight: '900', color: '#ffffff', textAlign: 'center' },
   splashSubtitle: { fontSize: 10, color: '#94a3b8', marginTop: 6, fontWeight: '800', letterSpacing: 2.5 },
-  splashLoaderBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1e293b', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, marginTop: 35, borderWidth: 1, borderColor: '#334155', gap: 10 },
-  splashLoadingText: { color: '#cbd5e1', fontSize: 12, fontWeight: '600' },
 
   initializingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0f172a' },
   
@@ -1132,8 +987,6 @@ const styles = StyleSheet.create({
   inputWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#0f172a', borderRadius: 16, marginBottom: 14, borderWidth: 1, borderColor: '#334155', paddingHorizontal: 14 },
   inputIcon: { fontSize: 16, marginRight: 10 },
   inputWithIcon: { flex: 1, paddingVertical: 15, fontSize: 14, color: '#f8fafc' },
-
-  codeBox: { width: 38, height: 42, backgroundColor: '#0f172a', justifyContent: 'center', alignItems: 'center', borderRadius: 10, borderWidth: 1, borderColor: '#334155' },
 
   primaryButtonGradient: { backgroundColor: '#6366f1', padding: 16, borderRadius: 16, alignItems: 'center', marginTop: 8 },
   buttonText: { color: '#ffffff', fontWeight: 'bold', fontSize: 15 },
@@ -1214,7 +1067,7 @@ const styles = StyleSheet.create({
   imagePickerRow: { flexDirection: 'row', marginBottom: 14 },
   pickerBtn: { flex: 1, backgroundColor: '#0f172a', padding: 12, borderRadius: 14, alignItems: 'center', borderWidth: 1, borderColor: '#334155' },
   pickerBtnText: { color: '#cbd5e1', fontSize: 13, fontWeight: 'bold' },
-  previewImage: { width: '100%', height: 150, borderRadius: 14, marginBottom: 14, resizeMode: 'cover', borderWidth: '1', borderColor: '#334155' },
+  previewImage: { width: '100%', height: 150, borderRadius: 14, marginBottom: 14, resizeMode: 'cover', borderWidth: 1, borderColor: '#334155' },
 
   formActionButtons: { flexDirection: 'row', gap: 12, marginTop: 6 },
   submitButton: { flex: 1, backgroundColor: '#6366f1', padding: 14, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
@@ -1240,3 +1093,4 @@ const styles = StyleSheet.create({
   emptyText: { color: '#f8fafc', fontSize: 16, fontWeight: 'bold' },
   emptySubText: { color: '#94a3b8', fontSize: 12, textAlign: 'center', marginTop: 4 }
 });
+
